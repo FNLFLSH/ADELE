@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/* ─── Cargill Light theme ────────────────────────────────────── */
+/* Green · White · Grey palette                                   */
+:root {
+  --color-surface:          #ffffff;
+  --color-surface-elevated: #f4f7f4;   /* soft green-grey tint   */
+  --color-primary:          #007a33;   /* Cargill signature green */
+  --color-primary-hover:    #005c26;   /* deeper green on hover   */
+  --color-primary-muted:    #d4edd9;   /* pale green — user bubbles */
+  --color-border:           #cdd8cd;   /* green-grey border       */
+  --color-text:             #111a11;   /* near-black w/ green cast */
+  --color-text-muted:       #6b7d6b;   /* muted sage              */
+  --color-accent:           #3aaa5c;   /* mid green accent        */
+  --color-toggle-off:       #b8c8b8;   /* grey-green off state    */
+}
+
+/* ─── Cargill Dark theme ─────────────────────────────────────── */
+/* Deep green-black · Bright greens · Charcoal greys             */
+:root.dark {
+  --color-surface:          #0b120d;   /* near-black forest       */
+  --color-surface-elevated: #132019;   /* dark moss               */
+  --color-primary:          #22c55e;   /* vivid green on dark     */
+  --color-primary-hover:    #4ade80;   /* lighter green hover     */
+  --color-primary-muted:    #14532d;   /* dark green — user bubbles */
+  --color-border:           #1e3a27;   /* dark green border       */
+  --color-text:             #ecfdf0;   /* off-white green tint    */
+  --color-text-muted:       #6b9a78;   /* muted sage on dark      */
+  --color-accent:           #4ade80;   /* bright accent           */
+  --color-toggle-off:       #2d3d30;   /* dark grey-green off     */
+}
+
+/* ─── Base resets ────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+    Arial, sans-serif;
+  background: var(--color-surface);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}

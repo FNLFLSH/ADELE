@@ -1,0 +1,20 @@
+{
+  "version": 1.1,
+  "properties": [],
+  "atDirectives": [
+    {
+      "name": "@theme",
+      "description": "Tailwind CSS v4 theme directive. Defines design tokens (colors, spacing, etc.) for the utility layer."
+    },
+    {
+      "name": "@import",
+      "description": "CSS import."
+    },
+    {
+      "name": "@layer",
+      "description": "Tailwind CSS layer directive."
+    }
+  ],
+  "pseudoClasses": [],
+  "pseudoElements": []
+}
