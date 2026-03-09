@@ -1,0 +1,480 @@
+
+Part 1 — Understanding Pinecone vs SQL
+Before understanding Adele's architecture, it's important to understand why we use two databases:
+	• Postgres (SQL)
+	• Pinecone (Vector Database)
+They solve different problems.
+
+SQL: The Structured Knowledge System
+Postgres is used to store structured information about Adele's knowledge.
+Think of SQL as the library catalog.
+It tells us:
+	• What frameworks exist
+	• Which repositories use which framework
+	• Which documents belong to each framework
+	• Where rules came from
+	• When rules were created or updated
+Example tables:
+
+frameworks
+repositories
+documents
+document_chunks
+reviews
+review_comments
+
+SQL answers questions like:
+
+Which framework does this repo belong to?
+
+Which document contains this rule?
+
+When was this rule added?
+
+What document produced this chunk?
+SQL is excellent for relationships and metadata.
+
+Pinecone: The Semantic Search Engine
+Pinecone is used to store vector embeddings of text.
+Instead of storing structured data, Pinecone stores numerical representations of meaning.
+This allows Adele to ask questions like:
+
+"What rule is most relevant to this code?"
+Example:
+A developer writes code like:
+
+CREATE TABLE sales_data
+Adele may search Pinecone with a query like:
+
+"MIW naming conventions for warehouse tables"
+Pinecone returns the most semantically similar rule.
+Example returned chunk:
+
+"All warehouse tables must follow snake_case naming conventions."
+
+Why We Don't Store Everything in Pinecone
+Pinecone is not a relational database.
+It is optimized for similarity search, not system structure.
+If we stored everything only in Pinecone, we would lose the ability to easily answer questions like:
+
+Which framework does this rule belong to?
+
+Which document created this embedding?
+
+When was this rule last updated?
+This is why Adele stores metadata in SQL and embeddings in Pinecone.
+
+Why We Store Chunks in SQL
+When documents are processed, they are split into smaller pieces called chunks.
+Example document:
+
+MIW Data Modeling Standards
+Example content:
+
+1. All warehouse tables must include audit columns
+2. Naming conventions must follow snake_case
+3. Fact tables must contain surrogate keys
+4. Dimension tables must support SCD Type 2
+Instead of embedding the entire document, we split it.
+Example chunks:
+Chunk 1
+
+All warehouse tables must include audit columns
+Chunk 2
+
+Naming conventions must follow snake_case
+Chunk 3
+
+Fact tables must contain surrogate keys
+These chunks are:
+Stored in SQL for traceability, and
+Embedded into Pinecone for semantic search.
+
+Why This Matters
+Storing chunks in SQL allows us to:
+1. Trace where rules came from
+If Adele flags an issue, we can trace it back to the source document.
+
+Chunk → Document → Framework
+
+2. Rebuild embeddings later
+If we upgrade embedding models in the future, we can easily regenerate embeddings using stored chunk text.
+
+3. Filter rules by framework
+Adele must apply different rules depending on whether a repository uses:
+	• MEF
+	• MIW
+	• MIF
+SQL allows us to filter documents and rules by framework before querying Pinecone.
+
+Mental Model
+A helpful way to understand the system:
+
+Postgres = Library catalog
+Pinecone = Librarian who finds relevant pages
+The catalog tells us:
+	• which book
+	• which author
+	• which category
+The librarian helps find the most relevant paragraph.
+Both are required.
+
+Rule of thumb for this current architecture 
+-Postgres stores structure (truth).	Pinecone stores meaning (vectors).
+
+
+PT2 — Adele Database Architecture
+Overview
+Adele’s database architecture is responsible for storing:
+	• framework standards
+	• repository framework mappings
+	• rule documents
+	• code context
+	• review results
+	• ranking and feedback data
+The system uses two data systems:
+Postgres (SQL)
+Stores structured data, relationships, and source records.
+Pinecone (Vector Database)
+Stores vector embeddings used for semantic retrieval.
+The separation allows Adele to maintain structured traceability while enabling semantic search across large bodies of text and historical review data.
+
+High Level Database Architecture
+
+Adele Knowledge Layer
+
+Postgres (Structured Data)
+--------------------------------
+frameworks
+repositories
+documents
+document_chunks
+code_context
+review_jobs
+reviews
+review_comments
+ranked_responses
+human_feedback
+
+
+Pinecone (Semantic Memory)
+--------------------------------
+framework rule embeddings
+code context embeddings
+ranked response embeddings
+human feedback embeddings
+Postgres stores the source of truth, while Pinecone stores vector representations of that information for semantic retrieval.
+
+Postgres Database Structure
+The Postgres database is divided into four main functional groups.
+
+1. Framework Knowledge
+2. Code Context
+3. Review System
+4. Ranking & Learning Data
+
+1 Framework Knowledge Tables
+These tables define the standards Adele uses when reviewing code.
+
+frameworks
+Defines the Minerva frameworks Adele understands.
+
+frameworks
+-----------
+framework_id (PK)
+name
+description
+created_at
+Example records:
+framework_id	name	description
+1	MEF	Minerva Engineering Framework
+2	MIW	Minerva Information Warehouse
+3	MIF	Minerva Ingestion Framework
+This table enables Adele to apply framework-specific review standards.
+
+repositories
+Maps repositories to their framework.
+
+repositories
+------------
+repo_id (PK)
+repo_name
+framework_id (FK)
+created_at
+Example:
+repo_name	framework
+warehouse-service	MIW
+ingestion-pipeline	MIF
+This allows Adele to determine which standards apply to a repository.
+
+documents
+Stores the original files containing framework rules or standards.
+
+documents
+-----------
+document_id (PK)
+repo
+file_path
+framework_id (FK)
+doc_type
+created_at
+Example doc_type values:
+
+rule
+guideline
+example
+policy
+A document represents a full rule source, such as architecture documentation or coding standards.
+
+document_chunks
+Documents are split into smaller text segments for embedding.
+
+document_chunks
+----------------
+chunk_id (PK)
+document_id (FK)
+chunk_text
+chunk_index
+embedding_id
+created_at
+Example chunk:
+
+Naming conventions must follow snake_case.
+Each chunk corresponds to one vector stored in Pinecone.
+Chunking allows Adele to retrieve specific rule fragments instead of entire documents.
+
+2 Code Context Tables
+These tables store historical code context used during reviews.
+
+code_context
+Stores snippets of historical code data.
+
+code_context
+-------------
+context_id (PK)
+repo_id (FK)
+file_path
+commit_hash
+code_snippet
+created_at
+Example stored data:
+
+Previous version of ingestion pipeline before refactor
+Embedding this information allows Adele to understand:
+	• historical implementation patterns
+	• previous architecture decisions
+	• similar code structures
+
+3 Review System Tables
+These tables store Adele’s review operations and results.
+
+review_jobs
+Tracks background processing jobs.
+
+review_jobs
+-----------
+job_id (PK)
+repo_id (FK)
+pr_number
+status
+created_at
+started_at
+completed_at
+Possible statuses:
+
+queued
+processing
+completed
+failed
+
+reviews
+Stores metadata about completed reviews.
+
+reviews
+--------
+review_id (PK)
+repo_id (FK)
+pr_number
+framework_id (FK)
+status
+created_at
+Example:
+review_id	repo	pr_number	status
+101	warehouse-service	54	completed
+
+review_comments
+Stores the suggestions generated by Adele.
+
+review_comments
+---------------
+comment_id (PK)
+review_id (FK)
+file_path
+line_number
+severity
+message
+suggestion
+created_at
+Example:
+severity	message
+medium	Table name should follow snake_case
+
+4 Ranking & Learning Tables
+These tables support Adele’s ranking and improvement systems.
+
+ranked_responses
+Stores labeled responses used to train the ranking system.
+
+ranked_responses
+----------------
+response_id (PK)
+review_comment_id (FK)
+response_text
+label
+created_at
+Example labels:
+
+good
+bad
+corrected
+Embedding these responses allows Adele to compare new suggestions with historically successful ones.
+
+human_feedback
+Stores feedback provided by engineers.
+
+human_feedback
+---------------
+feedback_id (PK)
+review_comment_id (FK)
+feedback_text
+feedback_type
+created_at
+Example feedback types:
+
+approval
+correction
+rejection
+This data allows Adele to improve recommendations based on real developer input.
+
+Pinecone Semantic Index
+Pinecone stores vector embeddings derived from Postgres data.
+These embeddings allow Adele to retrieve information based on semantic similarity rather than exact keywords.
+
+Pinecone Data Types
+The Pinecone index may contain multiple embedding categories.
+
+framework_rule
+code_context
+ranked_response
+human_feedback
+Each vector includes metadata referencing the original SQL record.
+Example metadata:
+
+type: framework_rule
+framework_id: 2
+document_id: 42
+chunk_id: 3
+
+Relationship Between Postgres and Pinecone
+
+frameworks
+    │
+    ▼
+documents
+    │
+    ▼
+document_chunks
+    │
+    │ embedding_id
+    ▼
+Pinecone vectors
+Additional embeddings may originate from:
+
+code_context
+ranked_responses
+human_feedback
+All embeddings reference their source record in Postgres.
+
+Key Architectural Principle
+Adele separates structured knowledge from semantic retrieval.
+
+Postgres
+-----------
+system structure
+relationships
+source data
+review history
+
+Pinecone
+-----------
+semantic embeddings
+vector similarity search
+context retrieval
+This separation provides:
+	• traceability
+	• improved debugging
+	• flexible retrieval
+	• scalable embedding updates
+
+Database Architecture Summary
+
+Postgres (Structured System Data)
+--------------------------------
+frameworks
+repositories
+documents
+document_chunks
+code_context
+review_jobs
+reviews
+review_comments
+ranked_responses
+human_feedback
+
+
+Pinecone (Semantic Retrieval Layer)
+--------------------------------
+framework rule embeddings
+code context embeddings
+ranked response embeddings
+human feedback embeddings
+Together, these systems form Adele’s knowledge layer, enabling framework-aware code reviews and continuous improvement through historical data and developer feedback.
+
+Adele Data Layer Implementation Checklist
+1. Pinecone (Semantic Layer)
+Feature/Area	Status	Notes / Next Steps
+Pinecone integration	✅ Implemented	Used for vector storage and retrieval
+Indexes	✅ Implemented	code-history-context, others exist but may need review
+Embedding model config	✅ Implemented	text-embedding-3-small (can be updated as needed)
+Metadata with vectors	✅ Implemented	Rich metadata stored with each vector
+Namespace support	⬜ Not used	Add if multi-tenancy or separation is needed
+Vector ID strategy	✅ Implemented	Unique, meaningful IDs per vector
+Index/model consistency	⬜ Needs review	Ensure all indexes use intended embedding models
+Data schema documentation	⬜ Needs update	Document current metadata fields and index purposes
+Pinecone CRUD operations	✅ Implemented	Upsert/query in codebase
+Pinecone/Postgres sync	⬜ Not implemented	Needed for future architecture
+
+2. Postgres (Structured Layer)
+Feature/Area	Status	Notes / Next Steps
+Postgres integration	⬜ Not implemented	No DB connection or ORM in codebase
+Table schemas (frameworks, repos, docs, etc.)	⬜ Not implemented	Needs design and migration scripts
+CRUD operations	⬜ Not implemented	Implement for all structured data
+Data ingestion	⬜ Not implemented	Sync metadata from Pinecone and new data
+API/service layer	⬜ Not implemented	Endpoints or services for DB access
+Migration scripts	⬜ Not implemented	For schema creation and updates
+Data sync with Pinecone	⬜ Not implemented	Ensure semantic/structured data are linked
+
+3. General / Cross-Cutting
+Feature/Area	Status	Notes / Next Steps
+Documentation	⬜ Needs update	Reflect actual implementation, not just markdown plans
+Figma/architecture diagrams	⬜ Needs update	Show current and planned state
+Testing	⬜ Needs coverage	Add tests for new DB logic and Pinecone sync
+
+Summary Table
+Layer	Current State (Code)	Needs Implementation/Update?
+Pinecone	Implemented, needs enhancements	Yes (namespaces, schema docs, index review)
+Postgres	Not implemented	Yes (full implementation)
+Metadata	Pinecone only	Yes (Postgres, sync logic)
+Sync Logic	Not present	Yes
+
+
